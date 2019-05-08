@@ -58,23 +58,23 @@ tic;
 kappa = 0.01;
 fprintf('Solving with infeasible newton method -- fixed kappa\n');
 [x_opt_log] = test.mpc_fixed_log(kappa);
-t_log = toc;
-fprintf('Infeasible start newton with fixed kappa = %f finished in %3f sec\n',kappa,t_log);
+t_kappa = toc;
+fprintf('Infeasible start newton with fixed kappa = %f finished in %3f sec\n',kappa,t_kappa);
 
 % Fixed newton step = 5
 Kmax = 5;
 tic;
 fprintf('Solving with infeasible newton method -- fixed max newton steps\n');
 [x_opt_nw] = test.mpc_fixed_newton(Kmax);
-t_nw = toc;
-fprintf('Infeasible start newton with fixed K_max = %d finished in %3f sec\n',Kmax,t_nw);
+t_kmax = toc;
+fprintf('Infeasible start newton with fixed K_max = %d finished in %3f sec\n',Kmax,t_kmax);
 
 % Fixed log barrier + fixed newton step
 tic;
 fprintf('Solving with infeasible newton method -- fixed kappa and max newton steps\n');
 [x_opt_lgnw] = test.mpc_fixed_log_newton(Kmax,kappa);
-t_lgnw = toc;
-fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %3f sec\n',t_lgnw);
+t_both = toc;
+fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %3f sec\n',t_both);
 
 fprintf('======================================================================\n');
 
@@ -147,11 +147,11 @@ stairs(x_full)
 stairs(x_log);
 stairs(x_nw);
 stairs(x_lgnw);
-legend(['fmincon (' num2str(t_mat) 's)'],...
-       ['exact newton (' num2str(t_full) 's)'],...
-       ['fixed kappa (' num2str(t_log) 's)'],...
-       ['fixed Kmax (' num2str(t_nw) 's)'],...
-       ['fixed kappa + Kmax (' num2str(t_lgnw) 's)']);
+legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+       ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa (' num2str(t_kappa * 1000, '%.2f') 'ms)'],...
+       ['fixed Kmax (' num2str(t_kmax * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa + Kmax (' num2str(t_both * 1000, '%.2f') 'ms)']);
 xlabel('t');
 ylabel('$x_1(t)$', 'Interpreter', 'latex');
 axis tight;
@@ -163,11 +163,11 @@ stairs(u_full)
 stairs(u_log);
 stairs(u_nw);
 stairs(u_lgnw);
-legend(['fmincon (' num2str(t_mat) 's)'],...
-       ['exact newton (' num2str(t_full) 's)'],...
-       ['fixed kappa (' num2str(t_log) 's)'],...
-       ['fixed Kmax (' num2str(t_nw) 's)'],...
-       ['fixed kappa + Kmax (' num2str(t_lgnw) 's)']);
+legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+       ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa (' num2str(t_kappa * 1000, '%.2f') 'ms)'],...
+       ['fixed Kmax (' num2str(t_kmax * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa + Kmax (' num2str(t_both * 1000, '%.2f') 'ms)']);
 xlabel('t');
 ylabel('$u_1(t)$', 'Interpreter', 'latex');
 axis tight;
