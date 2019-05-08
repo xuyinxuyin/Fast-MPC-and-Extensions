@@ -1,38 +1,80 @@
 % Testing FAST MPC class
+
+% Problem formulation
+% min sum_{t0}^{t0+T} [x(t) u(t)'] [Q S; S' R] [x(t) u(t)] + q'x(t) + r'u(t)
+% s.t.
+%     x(t+1) = Ax(t) + Bu(t) + w(t), t = t0, t0+1, ..., t0+T
+%     x(t) <= xmax, t = t0, t0+1, ..., t0+T
+%     x(t) >= xmin, t = t0, t0+1, ..., t0+T
+%     u(t) <= umax, t = t0, t0+1, ..., t0+T
+%     u(t) >= umin, t = t0, t0+1, ..., t0+T
+%     x(t0) = x0
+%     x(t0+T) = xf
+
 clear all;
 % close all;
 %% Parameters
 
-T = 10;                     % Horizon length
-n = 8;                      % Dimension of state
-m = 5;                      % Dimension of control
-Q = eye(n);                 % State stage cost
-R = eye(m);                 % Control stage cost
-S = [];                     % State control coupled cost
-Qf = 50*eye(n);             % Terminal state cost
-q = [];                     % Linear state cost
-r = [];                     % Linear control cost
-qf = [];                    % Terminal state cost
-Xmax = 10;                  % State upper limit
-Umax = 2;                   % Control upper limit
-xmin = -Xmax*ones(n,1);     % State lower bound
-xmax = Xmax*ones(n,1);      % State upper bound
-umin = -Umax*ones(m,1);     % Cotrol lower bound
-umax = Umax*ones(m,1);      % Control upper bound
+T  = 10;
+n = 12; % state dimension
+m = 3; % input dimension
 
-high_limit = 1;
-low_limit = 0;
-A = (high_limit-low_limit).*rand(n,n) + ones(n,n)*low_limit;    % Random A (State transition) matrix
-B = (high_limit-low_limit).*rand(n,m) + ones(n,m)*low_limit;    % Random B (Control matrix) matrix
+% objective matrices
+Q = eye(n);
+R = eye(m);
+Qf = Q;
+S  = [];
+q  = [];
+r  = [];
+qf = [];
 
-A = A./(max(abs(eig(A))));      % Spectral radius of A within 1
+% dynamics
+k = 1;          % spring constant
+lam = 0;        % damping constant
+Aa = -2*k;
+Ab = -2*lam;
+Ac = k;
+Ad = lam;
 
-high_limit_w = 1;
-low_limit_w = 0;
-w = (high_limit_w-low_limit_w).*rand(n,1) + ones(n,1)*low_limit_w;  % Random noise vector
+Acts = [zeros(n/2) eye(n/2);
+        [Aa,Ac,0,0,0,0,Ab,Ad,0,0,0,0;
+         Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0,0,0;
+         0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0,0;
+         0,0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0;
+         0,0,0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad;
+         0,0,0,0,Ac,Aa,0,0,0,0,Ad,Ab]];
 
-x0 = rand(n,1);                 % Initial state (random)
-xf = 1*ones(n,1);               % Terminal state
+Bcts = [zeros(n/2,m);
+        [1, 0, 0;
+        -1, 0, 0;
+         0, 1, 0;
+         0, 0, 1;
+         0,-1, 0;
+         0, 0,-1]];
+
+% convert to discrete-time system
+% sampling time
+ts = 0.5;
+A = expm(ts*Acts);
+B = (Acts\(expm(ts*Acts)-eye(n)))*Bcts;
+
+% physical limits
+Xmax = 4;
+Umax = 0.5;
+xmin = -Xmax*ones(n,1);
+xmax = Xmax*ones(n,1);
+umin = -Umax*ones(m,1);
+umax = Umax*ones(m,1);
+
+w = 2*rand(n,1)-1;
+w(1:n/2,:) = 0;
+w = 0.5*w;
+
+% initial state
+x0 = zeros(n,1);
+% final state
+xf = [];
+
 test = Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf, []);   % Build class
 
 %% Solving
@@ -142,12 +184,13 @@ end
 
 figure();
 subplot(2,1,1);
-stairs(x_mat);hold on;
-stairs(x_full)
+% stairs(x_mat);hold on;
+stairs(x_full); hold on;
 stairs(x_log);
 stairs(x_nw);
 stairs(x_lgnw);
-legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+% legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+legend(...
        ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
        ['fixed kappa (' num2str(t_kappa * 1000, '%.2f') 'ms)'],...
        ['fixed Kmax (' num2str(t_kmax * 1000, '%.2f') 'ms)'],...
@@ -158,12 +201,13 @@ axis tight;
 title('Predicted $x_1(t)$ in the first MPC iteration', 'Interpreter', 'latex');
 
 subplot(2,1,2);
-stairs(u_mat);hold on;
-stairs(u_full)
+% stairs(u_mat);hold on;
+stairs(u_full); hold on;
 stairs(u_log);
 stairs(u_nw);
 stairs(u_lgnw);
-legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+% legend(['fmincon (' num2str(t_mat, '%.2f') 's)'],...
+legend(...
        ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
        ['fixed kappa (' num2str(t_kappa * 1000, '%.2f') 'ms)'],...
        ['fixed Kmax (' num2str(t_kmax * 1000, '%.2f') 'ms)'],...

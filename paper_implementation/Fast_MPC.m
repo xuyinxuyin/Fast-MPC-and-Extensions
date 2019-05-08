@@ -33,17 +33,17 @@ methods
     function [x_opt] = matlab_solve(obj)
         kappa = 1;
         mu = 1/10;
-        z_init = get_z0(obj);
+        z0 = get_z0(obj);
         options = optimoptions(@fmincon,'Algorithm','interior-point','Display','off');
-        while kappa*length(z_init) >= 10e-3
+        while kappa*length(z0) >= 10e-3
             % formulate MPC
             [P,h] = form_inequality_const(obj);
             [H,g] = form_objective_function(obj);
             J = @(z)(z'*H*z + g'*z + kappa*(-sum(log(h - P*z))));
             [A_eq,b_eq] = form_equality_const(obj);
 
-            x_opt = fmincon(J,z_init,[],[],A_eq,b_eq,[],[],[],options);
-            z_init = x_opt;
+            x_opt = fmincon(J,z0,[],[],A_eq,b_eq,[],[],[],options);
+            z0 = x_opt;
             kappa = mu*kappa;
         end
     end
@@ -261,6 +261,10 @@ function [C,b] = form_equality_const(obj)
     % C(end-n+1:end,end-(n+m+n)+1:end) = [zeros(n,n) zeros(n,m) eye(n)];
     b(1:n) = A*x + w;
     % b(end-n+1:end) = xf;
+
+    % attach the final state requirement to the end, so that x = xf will also be
+    % honored as an equality constraint.
+    % if empty then we just ignore it.
     if isempty(xf)~=1
     b = [b;xf];
     C = [C;zeros(n,size(C,2))];
