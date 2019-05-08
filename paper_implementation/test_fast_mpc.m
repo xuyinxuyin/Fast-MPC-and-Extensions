@@ -85,14 +85,14 @@ tic;
 fprintf('Solving with matlab fmincon solver\n');
 [x_opt_mat] = test.matlab_solve;
 t_mat = toc;
-fprintf('Matlab fmincon finished in %3f sec\n',t_mat);
+fprintf('Matlab fmincon finished in %.3f sec\n',t_mat);
 
 % Solving with infeasible newton method, solve exact problem in each MPC step
 tic;
 fprintf('Solving with infeasible newton method -- full version\n');
 [x_opt_full] = test.mpc_solve_full;
 t_full = toc;
-fprintf('Infeasible start newton exact problem finished in %3f sec\n',t_full);
+fprintf('Infeasible start newton exact problem finished in %.3f sec\n',t_full);
 
 % Fixed log barrier method k=0.01
 tic;
@@ -100,7 +100,7 @@ kappa = 0.01;
 fprintf('Solving with infeasible newton method -- fixed kappa\n');
 [x_opt_log] = test.mpc_fixed_log(kappa);
 t_kappa = toc;
-fprintf('Infeasible start newton with fixed kappa = %f finished in %3f sec\n',kappa,t_kappa);
+fprintf('Infeasible start newton with fixed kappa = %f finished in %.3f sec\n',kappa,t_kappa);
 
 % Fixed newton step = 5
 Kmax = 5;
@@ -108,14 +108,14 @@ tic;
 fprintf('Solving with infeasible newton method -- fixed max newton steps\n');
 [x_opt_nw] = test.mpc_fixed_newton(Kmax);
 t_kmax = toc;
-fprintf('Infeasible start newton with fixed K_max = %d finished in %3f sec\n',Kmax,t_kmax);
+fprintf('Infeasible start newton with fixed K_max = %d finished in %.3f sec\n',Kmax,t_kmax);
 
 % Fixed log barrier + fixed newton step
 tic;
 fprintf('Solving with infeasible newton method -- fixed kappa and max newton steps\n');
 [x_opt_lgnw] = test.mpc_fixed_log_newton(Kmax,kappa);
 t_both = toc;
-fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %3f sec\n',t_both);
+fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %.3f sec\n',t_both);
 
 fprintf('======================================================================\n');
 
