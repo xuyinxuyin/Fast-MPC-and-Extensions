@@ -1,32 +1,45 @@
 classdef Fast_MPC
+% FAST_MPC Problem formulation
+% min sum_{t0}^{t0+T} [x(t) u(t)'] [Q S; S' R] [x(t) u(t)] + q'x(t) + r'u(t)
+% s.t.
+%     x(t+1) = Ax(t) + Bu(t) + w(t), t = t0, t0+1, ..., t0+T
+%     x(t) <= xmax, t = t0, t0+1, ..., t0+T
+%     x(t) >= xmin, t = t0, t0+1, ..., t0+T
+%     u(t) <= umax, t = t0, t0+1, ..., t0+T
+%     u(t) >= umin, t = t0, t0+1, ..., t0+T
+%     x(t0) = x0
+%     x(t0+T) = xf
 properties
+    T;
     Q; R; S; q; r; Qf; qf;
     A; B; w;
     x_min; x_max; u_min; u_max;
-    T;
-    x_final; x_init; x0;
+    x0; xf;
 end
 methods
     function obj = ...
-        Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf,x_init)
+        Fast_MPC(T, Q, R, S, q, r, Qf, qf, A, B, w, xmin, xmax, umin, umax, x0, xf)
+        obj.T = T;
+
         obj.Q = Q;
         obj.R = R;
         obj.S = S;
-        obj.Qf = Qf;
         obj.q = q;
         obj.r = r;
+        obj.Qf = Qf;
         obj.qf = qf;
+
+        obj.A = A;
+        obj.B = B;
+        obj.w = w;
+
         obj.x_min = xmin;
         obj.x_max = xmax;
         obj.u_min = umin;
         obj.u_max = umax;
-        obj.T = T;
+
         obj.x0 = x0;
-        obj.A = A;
-        obj.B = B;
-        obj.w = w;
-        obj.x_final = xf;
-        obj.x_init = x_init;
+        obj.xf = xf;
     end
 
     % matlab fmincon, solve exact problem in each MPC step
@@ -229,7 +242,7 @@ function [C,b] = form_equality_const(obj)
     T = obj.T;
     C = zeros(T*n,T*(n+m));
     b = zeros(T*n,1);
-    xf = obj.x_final;
+    xf = obj.xf;
 
     %% Initial condition check
     if isempty(A)

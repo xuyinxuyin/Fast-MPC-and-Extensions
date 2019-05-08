@@ -75,8 +75,7 @@ x0 = zeros(n,1);
 % final state
 xf = [];
 
-test = Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf, []);   % Build class
-
+test = Fast_MPC(T, Q, R, S, q, r, Qf, qf, A, B, w, xmin, xmax, umin, umax, x0, xf);
 %% Solving
 
 fprintf('\n\nSingle MPC Step Computation Time Comparision\n');
