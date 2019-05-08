@@ -37,18 +37,21 @@ test = Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf, []);   % Bui
 
 %% Solving
 
+fprintf('\n\nSingle MPC Step Computation Time Comparision\n');
 fprintf('======================================================================\n');
 % Native matlab solver
 tic;
 fprintf('Solving with matlab fmincon solver\n');
 [x_opt_mat] = test.matlab_solve;
 t_mat = toc;
+fprintf('Matlab fmincon finished in %3f sec\n',t_mat);
 
 % Solving with infeasible newton method, solve exact problem in each MPC step
 tic;
 fprintf('Solving with infeasible newton method -- full version\n');
 [x_opt_full] = test.mpc_solve_full;
 t_full = toc;
+fprintf('Infeasible start newton exact problem finished in %3f sec\n',t_full);
 
 % Fixed log barrier method k=0.01
 tic;
@@ -56,6 +59,7 @@ kappa = 0.01;
 fprintf('Solving with infeasible newton method -- fixed kappa\n');
 [x_opt_log] = test.mpc_fixed_log(kappa);
 t_log = toc;
+fprintf('Infeasible start newton with fixed kappa = %f finished in %3f sec\n',kappa,t_log);
 
 % Fixed newton step = 5
 Kmax = 5;
@@ -63,19 +67,15 @@ tic;
 fprintf('Solving with infeasible newton method -- fixed max newton steps\n');
 [x_opt_nw] = test.mpc_fixed_newton(Kmax);
 t_nw = toc;
+fprintf('Infeasible start newton with fixed K_max = %d finished in %3f sec\n',Kmax,t_nw);
 
 % Fixed log barrier + fixed newton step
 tic;
 fprintf('Solving with infeasible newton method -- fixed kappa and max newton steps\n');
 [x_opt_lgnw] = test.mpc_fixed_log_newton(Kmax,kappa);
 t_lgnw = toc;
+fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %3f sec\n',t_lgnw);
 
-fprintf('----------------------------------------------------------------------\n');
-fprintf('Matlab solver in %3f sec\n',t_mat);
-fprintf('Infeasible start newton in %3f sec\n',t_full);
-fprintf('Infeasible start newton with fixed kappa = %f in %3f sec\n',kappa,t_log);
-fprintf('Infeasible start newton with fixed newton K_max = %d in %3f sec\n',Kmax,t_nw);
-fprintf('Infeasible start newton with fixed newton and barrier in %3f sec\n',t_lgnw);
 fprintf('======================================================================\n');
 
 %% Plotting
@@ -147,10 +147,15 @@ stairs(x_full)
 stairs(x_log);
 stairs(x_nw);
 stairs(x_lgnw);
-legend('Matlab solver', 'In nw method', 'fixed log', 'fixed newton', 'fixed log + newton');
+legend(['fmincon (' num2str(t_mat) 's)'],...
+       ['exact newton (' num2str(t_full) 's)'],...
+       ['fixed kappa (' num2str(t_log) 's)'],...
+       ['fixed Kmax (' num2str(t_nw) 's)'],...
+       ['fixed kappa + Kmax (' num2str(t_lgnw) 's)']);
 xlabel('t');
 ylabel('$x_1(t)$', 'Interpreter', 'latex');
 axis tight;
+title('Predicted $x_1(t)$ in the first MPC iteration', 'Interpreter', 'latex');
 
 subplot(2,1,2);
 stairs(u_mat);hold on;
@@ -158,7 +163,12 @@ stairs(u_full)
 stairs(u_log);
 stairs(u_nw);
 stairs(u_lgnw);
-legend('Matlab solver', 'In nw method', 'fixed log', 'fixed newton', 'fixed log + newton');
+legend(['fmincon (' num2str(t_mat) 's)'],...
+       ['exact newton (' num2str(t_full) 's)'],...
+       ['fixed kappa (' num2str(t_log) 's)'],...
+       ['fixed Kmax (' num2str(t_nw) 's)'],...
+       ['fixed kappa + Kmax (' num2str(t_lgnw) 's)']);
 xlabel('t');
 ylabel('$u_1(t)$', 'Interpreter', 'latex');
 axis tight;
+title('Predicted $u_1(t)$ in the first MPC iteration', 'Interpreter', 'latex');
