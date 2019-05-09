@@ -1,20 +1,36 @@
 classdef Fast_MPC
+% FAST_MPC Problem formulation
+% min sum_{t0}^{t0+T} [x(t) u(t)'] [Q S; S' R] [x(t) u(t)] + q'x(t) + r'u(t)
+% s.t.
+%     x(t+1) = Ax(t) + Bu(t) + w(t), t = t0, t0+1, ..., t0+T
+%     x(t) <= xmax, t = t0, t0+1, ..., t0+T
+%     x(t) >= xmin, t = t0, t0+1, ..., t0+T
+%     u(t) <= umax, t = t0, t0+1, ..., t0+T
+%     u(t) >= umin, t = t0, t0+1, ..., t0+T
+%     x(t0) = x0
+%     x(t0+T) = xf
+%
+% Note x(t0+T) = xf will be encoded into the equality constrait and  x(t0) = x0
+% will be implictly satisfied by choosing x0 as the starting point.
 properties
+    T;
     Q; R; S; q; r; Qf; qf;
     A; B; w;
-    x_min; x_max; u_min; u_max;
-    T;
-    x_final; x_init; x0;
+    xmin; xmax; umin; umax;
+    x0; xf;
+    n; m;
 end
 methods
     function obj = ...
-        Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf,x_init)
+        Fast_MPC(T, Q, R, S, q, r, Qf, qf, A, B, w, xmin, xmax, umin, umax, x0, xf)
+        obj.T = T;
+
         obj.Q = Q;
         obj.R = R;
         obj.S = S;
-        obj.Qf = Qf;
         obj.q = q;
         obj.r = r;
+<<<<<<< HEAD
         obj.qf = qf; 
         obj.x_min = xmin;
         obj.x_max = xmax;
@@ -22,19 +38,33 @@ methods
         obj.u_max = umax;
         obj.T = T;
         obj.x0 = x0;
+=======
+        obj.Qf = Qf;
+        obj.qf = qf;
+
+>>>>>>> fc9a6298c8896c2d8a2da90a38feb5c19ff3dd5a
         obj.A = A;
         obj.B = B;
         obj.w = w;
-        obj.x_final = xf;
-        obj.x_init = x_init;
+
+        obj.xmin = xmin;
+        obj.xmax = xmax;
+        obj.umin = umin;
+        obj.umax = umax;
+
+        obj.x0 = x0;
+        obj.xf = xf;
+
+        obj.n = length(xmin);
+        obj.m = length(umin);
     end
 
     % matlab fmincon, solve exact problem in each MPC step
     function [x_opt] = matlab_solve(obj)
         kappa = 1;
         mu = 1/10;
-        z0 = get_z0(obj);
         options = optimoptions(@fmincon,'Algorithm','interior-point','Display','off');
+        z0 = zeros(obj.T * (obj.n + obj.m),1);
         while kappa*length(z0) >= 10e-3
             % formulate MPC
             [P,h] = form_inequality_const(obj);
@@ -55,7 +85,7 @@ methods
         [H,g] = form_objective_function(obj);
         [P,h] = form_inequality_const(obj);
         [C,b] = form_equality_const(obj);
-        [z] = get_z0(obj);
+        z = zeros(size(g));
         while kappa*length(z) >= 10e-3
             x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,[]);
             kappa = mu*kappa;
@@ -66,10 +96,10 @@ methods
 
     % fixed barrier parameter
     function [x_opt] = mpc_fixed_log(obj,kappa)
-        [z] = get_z0(obj);
         [H,g] = form_objective_function(obj);
         [P,h] = form_inequality_const(obj);
         [C,b] = form_equality_const(obj);
+        z = zeros(size(g));
         x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,[]);
     end
 
@@ -80,7 +110,7 @@ methods
         [H,g] = form_objective_function(obj);
         [P,h] = form_inequality_const(obj);
         [C,b] = form_equality_const(obj);
-        [z] = get_z0(obj);
+        z = zeros(size(g));
         while kappa*length(z) >= 10e-3
             x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,max_nt_iter);
             kappa = mu*kappa;
@@ -89,10 +119,10 @@ methods
     end
 
     function [x_opt] = mpc_fixed_log_newton(obj,max_nt_iter,kappa)
-        [z] = get_z0(obj);
         [H,g] = form_objective_function(obj);
         [P,h] = form_inequality_const(obj);
         [C,b] = form_equality_const(obj);
+        z = zeros(size(g));
         x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,max_nt_iter);
     end
 
@@ -177,22 +207,17 @@ function [P,h] = form_inequality_const(obj)
 %    where the inequality constrait is Pz <= h
 
     %% Initial condition check
-    if (size(obj.x_min,1)~=size(obj.Q,1)) || (size(obj.x_max,1)~=size(obj.Q,1))
+    if (size(obj.xmin,1)~=size(obj.Q,1)) || (size(obj.xmax,1)~=size(obj.Q,1))
         error('Check the state inequality constraints dimensions');
     end
-    if (size(obj.u_min,1)~=size(obj.R,1)) || (size(obj.u_max,1)~=size(obj.R,1))
+    if (size(obj.umin,1)~=size(obj.R,1)) || (size(obj.umax,1)~=size(obj.R,1))
         error('Check cotrol iequality constraint dimension');
     end
 
     %% Parameters
-    x_min = obj.x_min;
-    x_max = obj.x_max;
-    u_min = obj.u_min;
-    u_max = obj.u_max;
     T = obj.T;
-    n = size(x_min,1);
-    m = size(u_min,1);
-    x = obj.x0;
+    n = size(obj.xmin,1);
+    m = size(obj.umin,1);
 
     %% Inequality constraint construction
     P = zeros(2*T*(n+m),T*(n+m));
@@ -209,7 +234,7 @@ function [P,h] = form_inequality_const(obj)
     end
 
     for i=1:2*(m+n):2*T*(m+n)-2*(m+n)+1
-    h(i:2*(m+n)+i-1) = [u_max;-u_min;x_max;-x_min];
+    h(i:2*(m+n)+i-1) = [obj.umax;-obj.umin;obj.xmax;-obj.xmin];
     end
 end
 
@@ -222,14 +247,14 @@ function [C,b] = form_equality_const(obj)
     A = obj.A;
     B = obj.B;
     w = obj.w;
-    n = size(A,2);
-    m = size(B,2);
+    n = obj.n;
+    m = obj.m;
     x = obj.x0;
     u = obj.R;
     T = obj.T;
     C = zeros(T*n,T*(n+m));
     b = zeros(T*n,1);
-    xf = obj.x_final;
+    xf = obj.xf;
 
     %% Initial condition check
     if isempty(A)
@@ -270,34 +295,4 @@ function [C,b] = form_equality_const(obj)
     C = [C;zeros(n,size(C,2))];
     end
     C(end-n+1:end,end-n+1:end) = eye(n);
-end
-
-function [z0] = get_z0(obj)
-
-    %% Parameters
-    T = obj.T;
-    n = size(obj.Q,1);
-    m = size(obj.R,1);
-    x_min = obj.x_min;
-    x_max = obj.x_max;
-    u_min = obj.u_min;
-    u_max = obj.u_max;
-
-    %% Initialization step
-    if isempty(obj.x_init) ~= 1
-        if size(obj.x_init,1) ~= T*(n+m)
-            error('Initialization size mismatch (T*(n+m))');
-        else
-            z0 = obj.x_init;
-        end
-    else
-        x_init = (x_min + x_max)/2;
-        u_init = (u_min + u_max)/2;
-        z0 = zeros(T*(m+n),1);
-        for i = 1:(m+n):T*(m+n)-(m+n)+1
-        z0(i:i+m-1,1) = u_init;
-        z0(i+m:i+m+n-1,1) = x_init;
-        end
-
-    end
 end
