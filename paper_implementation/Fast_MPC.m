@@ -30,19 +30,9 @@ methods
         obj.S = S;
         obj.q = q;
         obj.r = r;
-<<<<<<< HEAD
-        obj.qf = qf; 
-        obj.x_min = xmin;
-        obj.x_max = xmax;
-        obj.u_min = umin;
-        obj.u_max = umax;
-        obj.T = T;
-        obj.x0 = x0;
-=======
         obj.Qf = Qf;
         obj.qf = qf;
 
->>>>>>> fc9a6298c8896c2d8a2da90a38feb5c19ff3dd5a
         obj.A = A;
         obj.B = B;
         obj.w = w;
