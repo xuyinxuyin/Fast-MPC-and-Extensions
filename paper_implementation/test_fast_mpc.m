@@ -14,7 +14,6 @@
 clear all;
 % close all;
 %% Parameters
-
 T  = 10;
 n = 12; % state dimension
 m = 3; % input dimension
@@ -78,7 +77,6 @@ xf = [];
 test = Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf, []);   % Build class
 
 %% Solving
-
 fprintf('\n\nSingle MPC Step Computation Time Comparision\n');
 fprintf('======================================================================\n');
 % Native matlab solver

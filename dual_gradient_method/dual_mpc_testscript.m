@@ -1,106 +1,161 @@
-classdef Fast_MPC
-properties
-    Q; R; S; q; r; Qf; qf;
-    A; B; w;
-    x_min; x_max; u_min; u_max;
-    T;
-    x_final; x_init; x0;
+
+%% Parameters
+T  = 10;
+n = 12; % state dimension
+m = 3; % input dimension
+l = 18;
+k = 24;
+
+% objective matrices
+Q = eye(n);
+R = eye(m);
+Qf = Q;
+S  = [];
+q  = [];
+r  = [];
+qf = [];
+
+% dynamics
+k = 1;          % spring constant
+lam = 0;        % damping constant
+Aa = -2*k;
+Ab = -2*lam;
+Ac = k;
+Ad = lam;
+
+Acts = [zeros(n/2) eye(n/2);
+        [Aa,Ac,0,0,0,0,Ab,Ad,0,0,0,0;
+         Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0,0,0;
+         0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0,0;
+         0,0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad,0;
+         0,0,0,Ac,Aa,Ac,0,0,0,Ad,Ab,Ad;
+         0,0,0,0,Ac,Aa,0,0,0,0,Ad,Ab]];
+
+Bcts = [zeros(n/2,m);
+        [1, 0, 0;
+        -1, 0, 0;
+         0, 1, 0;
+         0, 0, 1;
+         0,-1, 0;
+         0, 0,-1]];
+
+% convert to discrete-time system
+% sampling time
+ts = 0.5;
+A = expm(ts*Acts);
+B = (Acts\(expm(ts*Acts)-eye(n)))*Bcts;
+
+% physical limits
+Xmax = 4;
+Umax = 0.5;
+xmin = -Xmax*ones(n,1);
+xmax = Xmax*ones(n,1);
+umin = -Umax*ones(m,1);
+umax = Umax*ones(m,1);
+
+w = 2*rand(n,1)-1;
+w(1:n/2,:) = 0;
+w = 0.5*w;
+
+% initial state
+x0 = zeros(n,1);
+% final state
+xf = [];
+kappa = 0.01;
+Kmax = 5;
+
+test = Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf, []);   % Build class
+[H, g] = form_objective_function(test);
+[P, h] = form_inequality_const(test);
+[C, b] = form_equality_const(test);
+
+% Coefficients of dual problem
+H_inv = inv(H);
+dual_A = [P*H_inv*(P'), P*H_inv*(C');
+      C*H_inv*(P'), C*H_inv*(C')]/4;
+dual_B = [P*g/2 + h; C*g/2 + b];
+dual_C = g'*H_inv*g/4;
+
+%% Solving
+fprintf('\n\nSingle MPC Step Computation Time Comparision\n');
+fprintf('======================================================================\n');
+% Solving with infeasible newton method, solve exact problem in each MPC step
+tic;
+fprintf('Solving with infeasible newton method -- full version\n');
+[x_opt_full] = test.mpc_solve_full;
+t_full = toc;
+fprintf('Infeasible start newton exact problem finished in %3f sec\n',t_full);
+
+% Fixed log barrier + fixed newton step
+tic;
+fprintf('Solving with infeasible newton method -- fixed kappa and max newton steps\n');
+[x_opt_lgnw] = test.mpc_fixed_log_newton(Kmax,kappa);
+t_both = toc;
+fprintf('Infeasible start newton with both fixed kappa and Kmax finished in %3f sec\n',t_both);
+
+% Fixed log barrier + fixed gradient step
+tic;
+fprintf('Solving with gradienet method -- fixed kappa and max gradient steps\n');
+[x_grad, u_grad, ~] = dual_mpc(dual_A, dual_B, dual_C, kappa, T, n, m, H_inv, g, P, C);
+t_grad = toc;
+fprintf('dual gradient method with both fixed kappa and Kmax finished in %3f sec\n',t_both);
+
+fprintf('======================================================================\n');
+
+%% Plotting
+x_full = zeros(T*n,1);
+u_full = zeros(T*m,1);
+for i=1:(m+n):length(x_opt_full)
+    if i==1
+        u_full(i:i+m-1) = x_opt_full(i:i+m-1);
+        x_full(i:i+n-1) = x_opt_full(i+m:i+m+n-1);
+    else
+        u_full((i-1)/(m+n)*m+1:(i-1)/(m+n)*m+m) = x_opt_full(i:i+m-1);
+        x_full((i-1)/(m+n)*n+1:(i-1)/(m+n)*n+n) = x_opt_full(i+m:i+m+n-1);
+    end
 end
-methods
-    function obj = ...
-        Fast_MPC(Q,R,S,Qf,q,r,qf,xmin,xmax,umin,umax,T,x0, A,B,w,xf,x_init)
-        obj.Q = Q;
-        obj.R = R;
-        obj.S = S;
-        obj.Qf = Qf;
-        obj.q = q;
-        obj.r = r;
-        obj.qf = qf; 
-        obj.x_min = xmin;
-        obj.x_max = xmax;
-        obj.u_min = umin;
-        obj.u_max = umax;
-        obj.T = T;
-        obj.x0 = x0;
-        obj.A = A;
-        obj.B = B;
-        obj.w = w;
-        obj.x_final = xf;
-        obj.x_init = x_init;
+
+x_lgnw = zeros(T*n,1);
+u_lgnw = zeros(T*m,1);
+for i=1:(m+n):length(x_opt_lgnw)
+    if i==1
+        u_lgnw(i:i+m-1) = x_opt_lgnw(i:i+m-1);
+        x_lgnw(i:i+n-1) = x_opt_lgnw(i+m:i+m+n-1);
+    else
+        u_lgnw((i-1)/(m+n)*m+1:(i-1)/(m+n)*m+m) = x_opt_lgnw(i:i+m-1);
+        x_lgnw((i-1)/(m+n)*n+1:(i-1)/(m+n)*n+n) = x_opt_lgnw(i+m:i+m+n-1);
     end
-
-    % matlab fmincon, solve exact problem in each MPC step
-    function [x_opt] = matlab_solve(obj)
-        kappa = 1;
-        mu = 1/10;
-        z0 = get_z0(obj);
-        options = optimoptions(@fmincon,'Algorithm','interior-point','Display','off');
-        while kappa*length(z0) >= 10e-3
-            % formulate MPC
-            [P,h] = form_inequality_const(obj);
-            [H,g] = form_objective_function(obj);
-            J = @(z)(z'*H*z + g'*z + kappa*(-sum(log(h - P*z))));
-            [A_eq,b_eq] = form_equality_const(obj);
-
-            x_opt = fmincon(J,z0,[],[],A_eq,b_eq,[],[],[],options);
-            z0 = x_opt;
-            kappa = mu*kappa;
-        end
-    end
-
-    % infeasible newton method, solve exact problem in each MPC step
-    function [x_opt] = mpc_solve_full(obj)
-        kappa = 1;
-        mu = 1/10;
-        [H,g] = form_objective_function(obj);
-        [P,h] = form_inequality_const(obj);
-        [C,b] = form_equality_const(obj);
-        [z] = get_z0(obj);
-        while kappa*length(z) >= 10e-3
-            x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,[]);
-            kappa = mu*kappa;
-            z = x_opt;
-        end
-
-    end
-
-    % fixed barrier parameter
-    function [x_opt] = mpc_fixed_log(obj,kappa)
-        [z] = get_z0(obj);
-        [H,g] = form_objective_function(obj);
-        [P,h] = form_inequality_const(obj);
-        [C,b] = form_equality_const(obj);
-        x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,[]);
-    end
-
-    % fixed iteration number
-    function [x_opt] = mpc_fixed_newton(obj,max_nt_iter)
-        kappa = 1;
-        mu = 1/10;
-        [H,g] = form_objective_function(obj);
-        [P,h] = form_inequality_const(obj);
-        [C,b] = form_equality_const(obj);
-        [z] = get_z0(obj);
-        while kappa*length(z) >= 10e-3
-            x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,max_nt_iter);
-            kappa = mu*kappa;
-            z = x_opt;
-        end
-    end
-
-    function [x_opt] = mpc_fixed_log_newton(obj,max_nt_iter,kappa)
-        [z] = get_z0(obj);
-        [H,g] = form_objective_function(obj);
-        [P,h] = form_inequality_const(obj);
-        [C,b] = form_equality_const(obj);
-        x_opt = infeasible_newton_solver(H,g,P,h,C,b,kappa,z,max_nt_iter);
-    end
-
-end
 end
 
-%% Supporting fuctions
+figure();
+subplot(2,1,1);
+stairs(x_full); hold on;
+stairs(x_lgnw);
+stairs(x_grad);
+legend(...
+       ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa + Kmax (' num2str(t_both * 1000, '%.2f') 'ms)'], ...
+       ['fixed kappa + Gmax (' num2str(t_grad * 1000, '%.2f') 'ms)']);
+xlabel('t');
+ylabel('$x_1(t)$', 'Interpreter', 'latex');
+axis tight;
+title('Predicted $x_1(t)$ in the first MPC iteration', 'Interpreter', 'latex');
 
+subplot(2,1,2);
+stairs(u_full); hold on;
+stairs(u_lgnw);
+stairs(u_grad);
+legend(...
+       ['exact newton (' num2str(t_full * 1000, '%.2f') 'ms)'],...
+       ['fixed kappa + Kmax (' num2str(t_both * 1000, '%.2f') 'ms)'], ...
+       ['fixed kappa + Gmax (' num2str(t_grad * 1000, '%.2f') 'ms)']);
+xlabel('t');
+ylabel('$u_1(t)$', 'Interpreter', 'latex');
+axis tight;
+title('Predicted $u_1(t)$ in the first MPC iteration', 'Interpreter', 'latex');
+
+
+%% Supporting functions
 function [H,g] = form_objective_function(obj)
 %FAST_MPC_OBJECTIVE Return the objective function in matrix form
 %    [H,g] = fast_mpc_objective(obj)
@@ -270,34 +325,4 @@ function [C,b] = form_equality_const(obj)
     C = [C;zeros(n,size(C,2))];
     end
     C(end-n+1:end,end-n+1:end) = eye(n);
-end
-
-function [z0] = get_z0(obj)
-
-    %% Parameters
-    T = obj.T;
-    n = size(obj.Q,1);
-    m = size(obj.R,1);
-    x_min = obj.x_min;
-    x_max = obj.x_max;
-    u_min = obj.u_min;
-    u_max = obj.u_max;
-
-    %% Initialization step
-    if isempty(obj.x_init) ~= 1
-        if size(obj.x_init,1) ~= T*(n+m)
-            error('Initialization size mismatch (T*(n+m))');
-        else
-            z0 = obj.x_init;
-        end
-    else
-        x_init = (x_min + x_max)/2;
-        u_init = (u_min + u_max)/2;
-        z0 = zeros(T*(m+n),1);
-        for i = 1:(m+n):T*(m+n)-(m+n)+1
-        z0(i:i+m-1,1) = u_init;
-        z0(i+m:i+m+n-1,1) = x_init;
-        end
-
-    end
 end
