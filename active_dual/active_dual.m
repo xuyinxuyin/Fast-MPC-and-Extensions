@@ -24,7 +24,6 @@ la=la1;
 Dla=calderi(x,u,A,B,w,x0,xf,T);
 num=1;
 while norm(Dla)>1e-2
-
 Hla=calhess(indx,indu,invQ,invR,A,B,T);
 
 dla=linsolve(Hla,-Dla);
@@ -35,21 +34,23 @@ la1=la+t*dla;
 f1=calf(la1,Q,R,A,B,xmin,xmax,umin,umax,T,[],[],x0,xf,w);
 f0=calf(la,Q,R,A,B,xmin,xmax,umin,umax,T,x,u,x0,xf,w);
 
-while f1<f0+0.01*t*Dla'*dla
-    t=0.5*t;
-    
-    la1=la+t*dla;
-    f1=calf(la1,Q,R,A,B,xmin,xmax,umin,umax,T,[],[],x0,xf,w);
-end
+ while f1<f0+0.01*t*Dla'*dla
+     t=0.5*t;
+     if t<0.00001
+         break
+     end
+     la1=la+t*dla;
+     f1=calf(la1,Q,R,A,B,xmin,xmax,umin,umax,T,[],[],x0,xf,w);
+ end
 
 la=la1;
 
 [x,u,indx,indu]=find_zstar(la,invQ,invR,A,B,xmin,xmax,umin,umax,T);
 Dla=calderi(x,u,A,B,w,x0,xf,T);
 num=num+1;
-if num>1e4
-    break
-end
+ if num>1e4
+     break
+ end
 
 
 end
